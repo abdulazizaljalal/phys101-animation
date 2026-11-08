@@ -1,0 +1,1170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vector Cross Product</title>
+<meta name="description" content="Two vectors A and B lie on a plane. Their cross product C = A × B stands perpendicular to both. Rotate either vector or tilt the whole plane and C follows.">
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/" } }
+</script>
+<style>
+:root {
+  --bg: #eceef2;
+  --panel: #ffffff;
+  --panel-2: #f4f5f8;
+  --ink: #161b23;
+  --muted: #606b79;
+  --line: #d7dce3;
+  --a: #2b6ed4;
+  --b: #d7382f;
+  --c: #1f9d55;
+  --plane: #7c3aed;
+  --sheet: #b9c4d6;
+  --shadow: 0 1px 2px rgba(18, 24, 36, 0.06), 0 10px 30px rgba(18, 24, 36, 0.07);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111418;
+    --panel: #1a1e24;
+    --panel-2: #22272e;
+    --ink: #e7eaee;
+    --muted: #98a2ae;
+    --line: #2d333c;
+    --a: #5f9cf5;
+    --b: #f0655c;
+    --c: #3ec47a;
+    --plane: #b08cff;
+    --sheet: #4a5468;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 30px rgba(0, 0, 0, 0.35);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111418;
+  --panel: #1a1e24;
+  --panel-2: #22272e;
+  --ink: #e7eaee;
+  --muted: #98a2ae;
+  --line: #2d333c;
+  --a: #5f9cf5;
+  --b: #f0655c;
+  --c: #3ec47a;
+  --plane: #b08cff;
+  --sheet: #4a5468;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 30px rgba(0, 0, 0, 0.35);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+.page { max-width: 1180px; margin: 0 auto; padding: 20px 16px 48px; }
+.top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; flex-wrap: wrap; }
+h1 { font-size: 22px; letter-spacing: -0.01em; margin: 0; text-wrap: balance; }
+.top-actions { display: flex; align-items: center; gap: 10px; flex: none; flex-wrap: wrap; }
+.modes { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); padding: 3px; }
+.modes-label { font-size: 13px; color: var(--muted); padding: 0 8px 0 10px; }
+.modes button {
+  border: 0; background: transparent; padding: 6px 12px; border-radius: 999px; font: italic 600 14px "Latin Modern Math", "Cambria Math", Georgia, "Times New Roman", serif;
+  color: var(--ink); cursor: pointer;
+}
+.modes button:hover { background: var(--panel-2); }
+.views button { font: 600 13px system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 7px 14px; }
+.scene #flat { display: none; }
+.scene.is-flat canvas#scene { display: none; }
+.scene.is-flat #flat { display: block; }
+.modes button[aria-pressed="true"] { background: var(--ink); color: var(--panel); }
+.modes button:focus-visible { outline: 2px solid var(--a); outline-offset: 2px; }
+.btn {
+  font: inherit; font-weight: 600; font-size: 14px; height: 36px; padding: 0 14px 0 10px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer;
+  display: inline-flex; align-items: center; gap: 7px;
+}
+.view .btn { position: absolute; left: 14px; bottom: 14px; z-index: 2; background: var(--panel-2); box-shadow: var(--shadow); }
+.btn svg { width: 17px; height: 17px; flex: none; }
+.btn:hover { filter: brightness(0.96); }
+.btn:focus-visible { outline: 2px solid var(--a); outline-offset: 2px; }
+.theme {
+  flex: none; width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--line);
+  background: var(--panel); color: var(--muted); cursor: pointer; display: grid; place-items: center;
+}
+.theme svg { width: 18px; height: 18px; }
+.stage { display: grid; grid-template-columns: minmax(0, 1fr) 372px; gap: 20px; align-items: start; }
+@media (max-width: 920px) { .stage { grid-template-columns: minmax(0, 1fr); } }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); }
+.scene { position: relative; overflow: hidden; display: flex; flex-direction: column; }
+.view { position: relative; flex: none; min-height: 420px; height: min(72vh, 680px); }
+.scene canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; outline: none; display: block; }
+.scene canvas:focus-visible { box-shadow: inset 0 0 0 2px var(--a); }
+.loading { position: absolute; inset: 0; display: grid; place-items: center; font-size: 14px; color: var(--muted); text-align: center; padding: 20px; pointer-events: none; }
+.scene.ready .loading { display: none; }
+@media (max-width: 920px) { .view { height: min(62vh, 560px); flex: none; } }
+@media (max-width: 600px) { .view { height: 56vh; min-height: 320px; } }
+.dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex: none; }
+.dot.a { background: var(--a); }
+.dot.b { background: var(--b); }
+.dot.c { background: var(--c); }
+.panel { display: grid; gap: 20px; align-content: start; }
+h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 0; font-weight: 600; }
+.equation { display: grid; gap: 12px; padding: 14px 16px 16px; }
+.eq { display: flex; align-items: center; justify-content: center; gap: 8px; font-family: "Latin Modern Math", "Cambria Math", Georgia, "Times New Roman", serif; font-size: 34px; }
+.eq .op { color: var(--muted); }
+.sign {
+  width: 34px; height: 56px; margin: 0; padding: 0; font: 700 30px "Latin Modern Math", "Cambria Math", Georgia, "Times New Roman", serif;
+  border: 1px dashed var(--line); border-radius: 10px; background: transparent; color: var(--muted); cursor: pointer;
+}
+.sign[aria-pressed="true"] { border-style: solid; background: var(--panel-2); color: var(--ink); }
+.sign:focus-visible { outline: 2px solid var(--a); outline-offset: 2px; }
+.letter {
+  width: 64px; height: 56px; text-align: center; font-family: "Latin Modern Math", "Cambria Math", Georgia, "Times New Roman", serif;
+  font-style: italic; font-weight: 700; font-size: 32px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel-2); margin: 0; padding: 0 4px;
+}
+.vec { position: relative; display: inline-block; }
+.vec::after {
+  content: ""; position: absolute; left: 50%; top: 7px; width: 18px; height: 8px; transform: translateX(-50%); pointer-events: none;
+  background: currentColor; -webkit-mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 8"><path d="M0 4h15M12 1l3 3-3 3" fill="none" stroke="black" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>') center / contain no-repeat; mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 8"><path d="M0 4h15M12 1l3 3-3 3" fill="none" stroke="black" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>') center / contain no-repeat;
+}
+.vec.a { color: var(--a); }
+.vec.b { color: var(--b); }
+.vec.c { color: var(--c); }
+.letter { padding-top: 10px; }
+.letter:focus { font-size: 24px; }
+.letter.a { color: var(--a); }
+.letter.b { color: var(--b); }
+.letter.c { color: var(--c); }
+.letter:focus-visible { outline: 2px solid var(--a); outline-offset: 2px; }
+.letter.b:focus-visible { outline-color: var(--b); }
+.letter.c:focus-visible { outline-color: var(--c); }
+.eq-hint { font-size: 12px; color: var(--muted); margin: 0; text-align: center; line-height: 1.5; }
+.eq-hint b { color: var(--ink); font-weight: 600; }
+.eq-tips { margin: 0; padding: 0 0 0 18px; font-size: 12px; color: var(--muted); line-height: 1.5; display: grid; gap: 4px; }
+.eq-tips b { color: var(--ink); font-weight: 600; }
+.plane-card { display: grid; gap: 12px; padding: 14px 16px 16px; justify-items: center; }
+.plane-card h2 { justify-self: start; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="top">
+    <div>
+      <h1>Vector Cross Product</h1>
+    </div>
+    <div class="top-actions">
+      <div class="modes views" role="group" aria-label="View">
+        <button type="button" data-view="3d" aria-pressed="true">3D</button>
+        <button type="button" data-view="top" aria-pressed="false">2D</button>
+      </div>
+    <button class="theme" id="theme" type="button" aria-label="Switch theme">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+    </button>
+    </div>
+  </header>
+
+  <main class="stage">
+    <section class="card scene" id="sceneCard" aria-label="Cross product">
+      <div class="view" id="view">
+        <canvas id="scene" tabindex="0" role="img" aria-label="Two vectors on a plane and their cross product standing perpendicular to it. Drag an arrow tip to turn it, drag the plane to tilt it, drag empty space to orbit. Space spins the plane, S swaps A and B, R resets."></canvas>
+        <canvas id="flat" aria-label="Flat view of the two vectors and their cross product"></canvas>
+        <div class="loading" id="loading">Loading the 3D view…</div>
+        <button class="btn" id="reset" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
+          Reset
+        </button>
+
+      </div>
+    </section>
+
+    <aside class="panel">
+      <section class="card equation" aria-labelledby="eqTitle">
+        <h2 id="eqTitle">Equation</h2>
+        <div class="eq">
+          <span class="vec c"><input class="letter c" id="letterC" value="C" maxlength="8" spellcheck="false" autocomplete="off" aria-label="Name of the cross product"></span>
+          <span class="op">=</span>
+          <button class="sign" id="sign" type="button" aria-pressed="false" aria-label="Sign in front of the first vector">+</button>
+          <span class="vec a"><input class="letter a" id="letterA" value="A" maxlength="8" spellcheck="false" autocomplete="off" aria-label="Name of the first vector"></span>
+          <span class="op">×</span>
+          <span class="vec b"><input class="letter b" id="letterB" value="B" maxlength="8" spellcheck="false" autocomplete="off" aria-label="Name of the second vector"></span>
+        </div>
+        <ul class="eq-tips">
+          <li>Type over a letter to rename that vector.</li>
+          <li>Type a Greek name for its symbol: <b>omega</b> gives ω, <b>Omega</b> gives Ω.</li>
+          <li>Click the <b>+</b> to flip it to <b>−</b> and back.</li>
+        </ul>
+      </section>
+
+      <section class="card plane-card" aria-labelledby="planeTitle">
+        <h2 id="planeTitle">Lock result to axis</h2>
+        <div class="modes" role="group" aria-label="Lock the cross product to an axis">
+          <span class="modes-label">Lock <span class="name-c">C</span> to</span>
+          <button type="button" data-plane="yz" aria-pressed="false">x</button>
+          <button type="button" data-plane="zx" aria-pressed="false">y</button>
+          <button type="button" data-plane="xy" aria-pressed="false">z</button>
+        </div>
+        <p class="eq-hint">Keeps <span class="name-c">C</span> on that axis. Click again to unlock.</p>
+      </section>
+
+      <section class="card equation" aria-labelledby="moveTitle">
+        <h2 id="moveTitle">Moving vectors</h2>
+        <ul class="eq-tips">
+          <li><b>Hover first.</b> Rest the pointer on the tip of <span class="name-a">A</span> or <span class="name-b">B</span> until a glow appears, then drag it round the plane.</li>
+          <li>Hover the tip of <span class="name-c">C</span> the same way and drag it to tip the whole plane.</li>
+          <li>Drag the plane itself to turn it, or drag an axis line to turn the x, y, z set.</li>
+          <li>Drag empty space to orbit the view and scroll to zoom.</li>
+        </ul>
+      </section>
+
+
+    </aside>
+  </main>
+</div>
+
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+const $ = (id) => document.getElementById(id);
+const canvas = $("scene");
+const view = $("view");
+const sceneCard = $("sceneCard");
+const RAD = Math.PI / 180;
+const FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+const DEFAULTS = { magA: 2, angA: 0, magB: 1.6, angB: 60 };
+const DISC_R = 3.4;
+
+const state = {
+  ...DEFAULTS,
+  sign: 1,
+  lock: null,
+  view: "3d",
+  speed: 1,
+  spinning: false,
+  dragging: null,
+  hovering: null,
+  touched: false,
+};
+
+const clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
+const wrap180 = (d) => ((((d + 180) % 360) + 360) % 360) - 180;
+const wrap360 = (d) => ((d % 360) + 360) % 360;
+
+const vecA = new THREE.Vector3();
+const vecB = new THREE.Vector3();
+const vecC = new THREE.Vector3();
+function compute() {
+  vecA.set(Math.cos(state.angA * RAD), 0, -Math.sin(state.angA * RAD)).multiplyScalar(state.magA);
+  vecB.set(Math.cos(state.angB * RAD), 0, -Math.sin(state.angB * RAD)).multiplyScalar(state.magB);
+  vecC.crossVectors(vecA, vecB).multiplyScalar(state.sign);
+}
+
+let colours = {};
+function readColours() {
+  const cs = getComputedStyle(document.documentElement);
+  const get = (n) => cs.getPropertyValue(n).trim();
+  colours = { line: get("--line"), muted: get("--muted"), ink: get("--ink"), panel: get("--panel"), a: get("--a"), b: get("--b"), c: get("--c"), plane: get("--plane"), sheet: get("--sheet") };
+}
+
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.setClearColor(0x000000, 0);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(38, 1, 0.05, 100);
+camera.position.set(3.2, 7, 11.6);
+const controls = new OrbitControls(camera, canvas);
+controls.target.set(0, 0.9, 0);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.enablePan = false;
+controls.minDistance = 3;
+controls.maxDistance = 24;
+controls.update();
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0x50586a, 1.2));
+const sun = new THREE.DirectionalLight(0xffffff, 1.4);
+sun.position.set(4, 7, 5);
+scene.add(sun);
+
+const frame = new THREE.Group();
+scene.add(frame);
+
+const discMat = new THREE.MeshStandardMaterial({ color: 0xb9c4d6, transparent: true, opacity: 0.32, roughness: 0.9, side: THREE.DoubleSide, depthWrite: false });
+const disc = new THREE.Mesh(new THREE.PlaneGeometry(DISC_R * 2, DISC_R * 2), discMat);
+disc.rotation.x = -Math.PI / 2;
+frame.add(disc);
+
+const rimPts = [[1, 1], [-1, 1], [-1, -1], [1, -1], [1, 1]].map(([x, z]) => new THREE.Vector3(x * DISC_R, 0, z * DISC_R));
+const rimMat = new THREE.LineBasicMaterial({ color: 0x888888, transparent: true, opacity: 0.8 });
+frame.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(rimPts), rimMat));
+
+const grid = new THREE.GridHelper(DISC_R * 2, 14, 0x888888, 0x888888);
+grid.material.transparent = true;
+grid.material.opacity = 0.28;
+grid.material.depthWrite = false;
+frame.add(grid);
+
+const arrowA = new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(), 1, 0x2b6ed4, 0.28, 0.14);
+const arrowB = new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(), 1, 0xd7382f, 0.28, 0.14);
+const arrowC = new THREE.ArrowHelper(new THREE.Vector3(0, 1, 0), new THREE.Vector3(), 1, 0x1f9d55, 0.28, 0.14);
+for (const a of [arrowA, arrowB, arrowC]) {
+  a.line.material.linewidth = 2;
+  frame.add(a);
+}
+
+const handleMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
+const handleA = new THREE.Mesh(new THREE.SphereGeometry(0.26, 16, 12), handleMat);
+const handleB = new THREE.Mesh(new THREE.SphereGeometry(0.26, 16, 12), handleMat);
+const handleC = new THREE.Mesh(new THREE.SphereGeometry(0.26, 16, 12), handleMat);
+handleA.userData.which = "A";
+handleB.userData.which = "B";
+handleC.userData.which = "C";
+frame.add(handleA, handleB, handleC);
+const haloMat = new THREE.MeshBasicMaterial({ color: 0x2b6ed4, transparent: true, opacity: 0.22, depthWrite: false });
+const halo = new THREE.Mesh(new THREE.SphereGeometry(0.2, 24, 16), haloMat);
+halo.visible = false;
+frame.add(halo);
+
+const markerMat = new THREE.LineBasicMaterial({ color: 0x161b23 });
+const markerAC = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()]), markerMat);
+const markerBC = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()]), markerMat);
+frame.add(markerAC, markerBC);
+
+const ARC_N = 48;
+const arcMat = new THREE.LineBasicMaterial({ color: 0x606b79 });
+const arcGeo = new THREE.BufferGeometry();
+arcGeo.setAttribute("position", new THREE.BufferAttribute(new Float32Array((ARC_N + 1) * 3), 3));
+const arc = new THREE.Line(arcGeo, arcMat);
+frame.add(arc);
+
+const normalMat = new THREE.LineDashedMaterial({ color: 0x888888, dashSize: 0.1, gapSize: 0.1, transparent: true, opacity: 0.7 });
+const normalGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, -DISC_R * 0.9, 0), new THREE.Vector3(0, DISC_R * 0.9, 0)]);
+const normalLine = new THREE.Line(normalGeo, normalMat);
+normalLine.computeLineDistances();
+frame.add(normalLine);
+
+function makeLabel(text) {
+  const c = document.createElement("canvas");
+  c.width = 256;
+  c.height = 128;
+  const tex = new THREE.CanvasTexture(c);
+  tex.anisotropy = 4;
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, depthTest: false }));
+  sprite.scale.set(1.3, 0.65, 1);
+  sprite.renderOrder = 10;
+  sprite.userData = { canvas: c, tex, text };
+  return sprite;
+}
+function paintLabel(sprite, colour, text = sprite.userData.text) {
+  const { canvas: c, tex } = sprite.userData;
+  const g = c.getContext("2d");
+  g.clearRect(0, 0, c.width, c.height);
+  g.font = `italic 700 68px ${FONT}`;
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  g.lineWidth = 10;
+  g.lineJoin = "round";
+  g.lineCap = "round";
+  const cx = c.width / 2, cy = c.height / 2 + 14;
+  g.strokeStyle = colours.panel;
+  g.strokeText(text, cx, cy);
+  g.fillStyle = colour;
+  g.fillText(text, cx, cy);
+  if (sprite.userData.plain) {
+    tex.needsUpdate = true;
+    return;
+  }
+  const w = Math.max(40, Math.min(g.measureText(text).width + 8, c.width - 20));
+  const y = cy - 56, x0 = cx - w / 2, x1 = cx + w / 2;
+  const head = 12;
+  const path = () => {
+    g.beginPath();
+    g.moveTo(x0, y);
+    g.lineTo(x1, y);
+    g.moveTo(x1 - head, y - head * 0.75);
+    g.lineTo(x1, y);
+    g.lineTo(x1 - head, y + head * 0.75);
+  };
+  g.strokeStyle = colours.panel;
+  g.lineWidth = 12;
+  path();
+  g.stroke();
+  g.strokeStyle = colour;
+  g.lineWidth = 5;
+  path();
+  g.stroke();
+  tex.needsUpdate = true;
+}
+const AXIS_L = 4.3;
+const axes = new THREE.Group();
+scene.add(axes);
+const axisMat = new THREE.LineBasicMaterial({ color: 0x606b79, transparent: true, opacity: 0.9 });
+const axisDirs = { x: new THREE.Vector3(1, 0, 0), y: new THREE.Vector3(0, 0, -1), z: new THREE.Vector3(0, 1, 0) };
+const axisLabels = {};
+const axisHandles = [];
+for (const [name, dir] of Object.entries(axisDirs)) {
+  const geo = new THREE.BufferGeometry().setFromPoints([dir.clone().multiplyScalar(-AXIS_L), dir.clone().multiplyScalar(AXIS_L)]);
+  axes.add(new THREE.Line(geo, axisMat));
+  const head = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.22, 12), new THREE.MeshBasicMaterial({ color: 0x606b79 }));
+  head.position.copy(dir).multiplyScalar(AXIS_L);
+  head.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+  axes.add(head);
+  const label = makeLabel(name);
+  label.userData.plain = true;
+  label.scale.set(0.8, 0.4, 1);
+  label.position.copy(dir).multiplyScalar(AXIS_L + 0.4);
+  axes.add(label);
+  const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, AXIS_L * 2 + 0.8, 8), handleMat);
+  handle.quaternion.copy(head.quaternion);
+  handle.userData.which = "axes";
+  axes.add(handle);
+  axisHandles.push(handle);
+  axisLabels[name] = { label, head };
+}
+
+const labelA = makeLabel("A");
+const labelB = makeLabel("B");
+const labelC = makeLabel("C");
+const labelTheta = makeLabel("θ");
+labelTheta.userData.plain = true;
+labelTheta.scale.set(0.7, 0.35, 1);
+frame.add(labelA, labelB, labelC, labelTheta);
+
+const tipA = new THREE.Vector3();
+const tipB = new THREE.Vector3();
+const tipC = new THREE.Vector3();
+const tmp = new THREE.Vector3();
+const tmp2 = new THREE.Vector3();
+
+function setArrow(arrow, v, colourHex) {
+  const len = v.length();
+  if (len < 0.02) {
+    arrow.visible = false;
+    return;
+  }
+  arrow.visible = true;
+  arrow.setDirection(tmp.copy(v).normalize());
+  arrow.setLength(len, Math.min(0.3, len * 0.45), Math.min(0.15, len * 0.22));
+}
+
+function setMarker(marker, u, w) {
+  const s = 0.3;
+  const pos = marker.geometry.attributes.position;
+  tmp.copy(u).normalize().multiplyScalar(s);
+  tmp2.copy(w).normalize().multiplyScalar(s);
+  pos.setXYZ(0, tmp.x, tmp.y, tmp.z);
+  pos.setXYZ(1, tmp.x + tmp2.x, tmp.y + tmp2.y, tmp.z + tmp2.z);
+  pos.setXYZ(2, tmp2.x, tmp2.y, tmp2.z);
+  pos.needsUpdate = true;
+}
+
+function updateScene() {
+  compute();
+
+  setArrow(arrowA, vecA);
+  setArrow(arrowB, vecB);
+  setArrow(arrowC, vecC);
+  tipA.copy(vecA);
+  tipB.copy(vecB);
+  tipC.copy(vecC);
+  handleA.position.copy(tipA);
+  handleB.position.copy(tipB);
+  handleC.position.copy(tipC);
+  handleC.visible = vecC.length() > 0.05;
+
+  labelA.position.copy(tipA).add(tmp.copy(vecA).normalize().multiplyScalar(0.55));
+  labelB.position.copy(tipB).add(tmp.copy(vecB).normalize().multiplyScalar(0.55));
+  const cLen = vecC.length();
+  labelC.visible = cLen > 0.05;
+  if (labelC.visible) labelC.position.copy(tipC).add(tmp.copy(vecC).normalize().multiplyScalar(0.55));
+
+  const showMarkers = cLen > 0.05;
+  markerAC.visible = markerBC.visible = showMarkers;
+  if (showMarkers) {
+    setMarker(markerAC, vecA, vecC);
+    setMarker(markerBC, vecB, vecC);
+  }
+
+  const a0 = state.angA * RAD;
+  let sweep = wrap180(state.angB - state.angA) * RAD;
+  const r = Math.min(0.75, Math.min(state.magA, state.magB) * 0.45);
+  const ap = arcGeo.attributes.position;
+  for (let i = 0; i <= ARC_N; i++) {
+    const t = a0 + (sweep * i) / ARC_N;
+    ap.setXYZ(i, Math.cos(t) * r, 0, -Math.sin(t) * r);
+  }
+  ap.needsUpdate = true;
+  const mid = a0 + sweep / 2;
+  labelTheta.position.set(Math.cos(mid) * (r + 0.32), 0.04, -Math.sin(mid) * (r + 0.32));
+  labelTheta.visible = Math.abs(sweep) > 0.08;
+
+  halo.visible = Boolean(state.hovering || state.dragging);
+  if (halo.visible) {
+    const which = state.dragging || state.hovering;
+    halo.position.copy(which === "A" ? tipA : which === "B" ? tipB : tipC);
+    haloMat.color.set(which === "A" ? colours.a : which === "B" ? colours.b : colours.c);
+  }
+}
+
+const names = { A: "A", B: "B", C: "C" };
+function applyNames() {
+  paintLabel(labelA, colours.a, names.A);
+  paintLabel(labelB, colours.b, names.B);
+  paintLabel(labelC, colours.c, names.C);
+  for (const el of document.querySelectorAll(".name-a")) el.textContent = names.A;
+  for (const el of document.querySelectorAll(".name-b")) el.textContent = names.B;
+  for (const el of document.querySelectorAll(".name-c")) el.textContent = names.C;
+}
+$("sign").addEventListener("click", () => {
+  state.sign = -state.sign;
+  state.touched = true;
+  $("sign").textContent = state.sign < 0 ? "−" : "+";
+  $("sign").setAttribute("aria-pressed", String(state.sign < 0));
+});
+
+const GREEK = {
+  alpha: "α", beta: "β", gamma: "γ", delta: "δ", epsilon: "ε", zeta: "ζ", eta: "η", theta: "θ", iota: "ι", kappa: "κ", lambda: "λ", mu: "μ",
+  nu: "ν", xi: "ξ", omicron: "ο", pi: "π", rho: "ρ", sigma: "σ", tau: "τ", upsilon: "υ", phi: "φ", chi: "χ", psi: "ψ", omega: "ω",
+};
+function greek(text) {
+  const key = text.toLowerCase();
+  if (!(key in GREEK)) return null;
+  const letter = GREEK[key];
+  return text[0] === text[0].toUpperCase() && text[0] !== text[0].toLowerCase() ? letter.toUpperCase() : letter;
+}
+for (const key of ["A", "B", "C"]) {
+  $(`letter${key}`).addEventListener("input", (e) => {
+    const symbol = greek(e.target.value.trim());
+    if (symbol) e.target.value = symbol;
+    names[key] = e.target.value.trim().slice(0, 3) || key;
+    applyNames();
+  });
+  $(`letter${key}`).addEventListener("blur", (e) => {
+    if (!e.target.value.trim()) e.target.value = names[key];
+  });
+}
+
+function retheme() {
+  readColours();
+  discMat.color.set(colours.sheet);
+  rimMat.color.set(colours.muted);
+  grid.material.color.set(colours.muted);
+  arrowA.setColor(new THREE.Color(colours.a));
+  arrowB.setColor(new THREE.Color(colours.b));
+  arrowC.setColor(new THREE.Color(colours.c));
+  markerMat.color.set(colours.ink);
+  arcMat.color.set(colours.muted);
+  axisMat.color.set(colours.muted);
+  for (const { label, head } of Object.values(axisLabels)) {
+    head.material.color.set(colours.muted);
+    paintLabel(label, colours.muted);
+  }
+  normalMat.color.set(colours.muted);
+  applyNames();
+  paintLabel(labelTheta, colours.muted);
+}
+
+function setSlider(id, value, lo, hi, text) {
+  const input = $(id);
+  if (!input) return;
+  input.value = value;
+  input.style.setProperty("--fill", `${((value - lo) / (hi - lo)) * 100}%`);
+  $(`${id}Out`).textContent = text;
+}
+const deg = (d) => `${Math.round(d)}°`;
+function setAngA(d) { state.angA = wrap180(Math.round(d)); setSlider("angA", state.angA, -180, 180, deg(state.angA)); }
+function setAngB(d) { state.angB = wrap180(Math.round(d)); setSlider("angB", state.angB, -180, 180, deg(state.angB)); }
+function setMagA(m) { state.magA = clamp(m, 0.5, 3); setSlider("magA", state.magA, 0.5, 3, state.magA.toFixed(2)); }
+function setMagB(m) { state.magB = clamp(m, 0.5, 3); setSlider("magB", state.magB, 0.5, 3, state.magB.toFixed(2)); }
+function setSpeed(v) { state.speed = clamp(v, 0.1, 3); setSlider("speed", state.speed, 0.1, 3, `${state.speed.toFixed(2)}×`); }
+
+const PLAY = '<path d="M8 5.5v13l11-6.5z"/>';
+const PAUSE = '<path d="M7 5h4v14H7zM13 5h4v14h-4z"/>';
+function syncPlay() {
+  if (!$("play")) return;
+  $("play").setAttribute("aria-pressed", String(state.spinning));
+  $("playText").textContent = state.spinning ? "Stop" : "Spin plane";
+  $("playIcon").innerHTML = state.spinning ? PAUSE : PLAY;
+}
+function toggleSpin() {
+  state.touched = true;
+  state.spinning = !state.spinning;
+  syncPlay();
+}
+function swap() {
+  state.touched = true;
+  const a = state.angA, b = state.angB, ma = state.magA, mb = state.magB;
+  setAngA(b);
+  setAngB(a);
+  setMagA(mb);
+  setMagB(ma);
+}
+function reset() {
+  state.spinning = false;
+  state.touched = true;
+  setAngA(DEFAULTS.angA);
+  setAngB(DEFAULTS.angB);
+  setMagA(DEFAULTS.magA);
+  setMagB(DEFAULTS.magB);
+  frame.quaternion.identity();
+  setLock(null);
+  planeAnim = null;
+  state.sign = 1;
+  $("sign").textContent = "+";
+  $("sign").setAttribute("aria-pressed", "false");
+  axes.quaternion.identity();
+  camera.position.set(3.2, 7, 11.6);
+  controls.target.set(0, 0.9, 0);
+  controls.update();
+  syncPlay();
+}
+
+const raycaster = new THREE.Raycaster();
+const ndc = new THREE.Vector2();
+const sheet = new THREE.Plane();
+const hit = new THREE.Vector3();
+const normal = new THREE.Vector3();
+let dragStart = null;
+
+function pointerNdc(e) {
+  const r = canvas.getBoundingClientRect();
+  ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -(((e.clientY - r.top) / r.height) * 2 - 1));
+  raycaster.setFromCamera(ndc, camera);
+}
+function pick(e) {
+  pointerNdc(e);
+  const tips = raycaster.intersectObjects([handleA, handleB, handleC].filter((h) => h.visible), false);
+  if (tips.length) return tips[0].object.userData.which;
+  if (raycaster.intersectObjects(axisHandles, false).length) return "axes";
+  const onDisc = raycaster.intersectObject(disc, false);
+  return onDisc.length ? "plane" : null;
+}
+function planeHitLocal(e) {
+  pointerNdc(e);
+  frame.updateMatrixWorld();
+  normal.set(0, 1, 0).transformDirection(frame.matrixWorld);
+  sheet.setFromNormalAndCoplanarPoint(normal, frame.position);
+  if (!raycaster.ray.intersectPlane(sheet, hit)) return null;
+  return frame.worldToLocal(hit);
+}
+
+canvas.addEventListener("pointerdown", (e) => {
+  const which = pick(e);
+  if (!which) return;
+  e.preventDefault();
+  canvas.setPointerCapture(e.pointerId);
+  controls.enabled = false;
+  state.dragging = which;
+  state.touched = true;
+  planeAnim = null;
+  if (which === "plane") {
+    state.spinning = false;
+    syncPlay();
+    dragStart = { x: e.clientX, y: e.clientY, quat: frame.quaternion.clone(), other: axes.quaternion.clone() };
+  } else if (which === "axes") {
+    planeAnim = null;
+    dragStart = { x: e.clientX, y: e.clientY, quat: axes.quaternion.clone(), other: frame.quaternion.clone() };
+  } else if (which === "C") {
+    state.spinning = false;
+    syncPlay();
+    moveNormal(e);
+  } else {
+    moveTip(e);
+  }
+  canvas.style.cursor = "grabbing";
+});
+
+function moveTip(e) {
+  const local = planeHitLocal(e);
+  if (!local) return;
+  const ang = Math.atan2(-local.z, local.x) / RAD;
+  const mag = clamp(Math.hypot(local.x, local.z), 0.5, 3);
+  if (state.dragging === "A") {
+    setAngA(ang);
+    setMagA(mag);
+  } else {
+    setAngB(ang);
+    setMagB(mag);
+  }
+}
+
+const SNAP = 8 * RAD;
+const zWorld = new THREE.Vector3();
+function moveNormal(e) {
+  pointerNdc(e);
+  const len = Math.max(vecC.length(), 0.5);
+  frame.updateMatrixWorld();
+  const current = tipC.clone().applyMatrix4(frame.matrixWorld);
+  const o = raycaster.ray.origin, r = raycaster.ray.direction;
+  const b = o.dot(r), c = o.lengthSq() - len * len;
+  const disc = b * b - c;
+  let d = null;
+  if (disc >= 0) {
+    const sq = Math.sqrt(disc);
+    const hits = [-b - sq, -b + sq].filter((t) => t > 0).map((t) => o.clone().addScaledVector(r, t));
+    if (hits.length) d = hits.reduce((best, p) => (p.distanceToSquared(current) < best.distanceToSquared(current) ? p : best)).normalize();
+  }
+  if (!d) {
+    raycaster.ray.closestPointToPoint(new THREE.Vector3(), hit);
+    if (hit.lengthSq() < 1e-6) return;
+    d = hit.clone().normalize();
+  }
+  zWorld.set(0, 1, 0).applyQuaternion(axes.quaternion);
+  const rect = canvas.getBoundingClientRect();
+  const pointer = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  for (const z of [zWorld.clone(), zWorld.clone().negate()]) {
+    const p = z.clone().multiplyScalar(len).project(camera);
+    const sx = ((p.x + 1) / 2) * rect.width, sy = ((1 - p.y) / 2) * rect.height;
+    if (Math.hypot(sx - pointer.x, sy - pointer.y) < 18 || d.angleTo(z) < SNAP) {
+      d.copy(z);
+      break;
+    }
+  }
+  const n = d.multiplyScalar(Math.sign(vecC.y) || 1);
+  const from = new THREE.Vector3(0, 1, 0).applyQuaternion(frame.quaternion);
+  const spin = new THREE.Quaternion().setFromUnitVectors(from, n);
+  frame.quaternion.premultiply(spin);
+  if (state.lock) axes.quaternion.premultiply(spin);
+}
+
+canvas.addEventListener("pointermove", (e) => {
+  if ((state.dragging === "plane" || state.dragging === "axes") && dragStart) {
+    const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0).normalize();
+    const qTurn = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), (e.clientX - dragStart.x) * 0.5 * RAD);
+    const qTilt = new THREE.Quaternion().setFromAxisAngle(right, (e.clientY - dragStart.y) * 0.5 * RAD);
+    const q = qTilt.multiply(qTurn);
+    const [self, other] = state.dragging === "plane" ? [frame, axes] : [axes, frame];
+    self.quaternion.copy(q).multiply(dragStart.quat);
+    if (state.lock) other.quaternion.copy(q).multiply(dragStart.other);
+    return;
+  }
+  if (state.dragging === "C") {
+    moveNormal(e);
+    return;
+  }
+  if (state.dragging) {
+    moveTip(e);
+    return;
+  }
+  const which = pick(e);
+  state.hovering = which === "plane" || which === "axes" ? null : which;
+  canvas.style.cursor = which ? "grab" : "default";
+});
+
+function endDrag() {
+  if (!state.dragging) return;
+  state.dragging = null;
+  dragStart = null;
+  controls.enabled = true;
+  canvas.style.cursor = "default";
+}
+canvas.addEventListener("pointerup", endDrag);
+canvas.addEventListener("pointercancel", endDrag);
+canvas.addEventListener("pointerleave", () => {
+  if (!state.dragging) state.hovering = null;
+});
+
+document.addEventListener("keydown", (e) => {
+  const tag = e.target.tagName;
+  if (tag === "INPUT" || tag === "SELECT" || tag === "BUTTON") return;
+  if (e.key === " ") {
+    e.preventDefault();
+    toggleSpin();
+  } else if (e.key === "r" || e.key === "R") {
+    reset();
+  } else if (e.key === "s" || e.key === "S") {
+    swap();
+  }
+});
+
+$("reset").addEventListener("click", reset);
+
+const easeOut = (k) => 1 - Math.pow(1 - k, 3);
+
+const PLANE_FRAMES = {
+  xy: ["x", "z"],
+  yz: ["y", "x"],
+  zx: ["z", "y"],
+};
+let planeAnim = null;
+function setLock(pair) {
+  state.lock = pair;
+  for (const b of document.querySelectorAll("[data-plane]")) b.setAttribute("aria-pressed", String(b.dataset.plane === pair));
+}
+function layPlane(pair) {
+  state.touched = true;
+  state.spinning = false;
+  syncPlay();
+  if (state.lock === pair) {
+    setLock(null);
+    return;
+  }
+  setLock(pair);
+  const [first, normal] = PLANE_FRAMES[pair];
+  const a = axisDirs[first].clone();
+  const b = axisDirs[normal].clone();
+  const m = new THREE.Matrix4().makeBasis(a, b, a.clone().cross(b));
+  const to = new THREE.Quaternion().setFromRotationMatrix(m);
+  if ((Math.sign(vecC.y) || 1) < 0) to.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI));
+  to.premultiply(axes.quaternion);
+  planeAnim = { from: frame.quaternion.clone(), to, t0: performance.now() };
+}
+for (const b of document.querySelectorAll("[data-plane]")) b.addEventListener("click", () => layPlane(b.dataset.plane));
+function stepPlaneAnim(now) {
+  const k = easeOut(Math.min(1, (now - planeAnim.t0) / 450));
+  frame.quaternion.slerpQuaternions(planeAnim.from, planeAnim.to, k);
+  if (k >= 1) planeAnim = null;
+}
+
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  retheme();
+}
+$("theme").addEventListener("click", () => {
+  const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+  applyTheme(next);
+  try { localStorage.setItem("cross-product-theme", next); } catch {}
+});
+let saved = null;
+try { saved = localStorage.getItem("cross-product-theme"); } catch {}
+const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+applyTheme(saved === "dark" || saved === "light" ? saved : prefersDark ? "dark" : "light");
+
+const flat = $("flat");
+const fctx = flat.getContext("2d");
+const flatState = { hovering: null, dragging: null, geom: null };
+
+function setView(mode) {
+  state.view = mode;
+  sceneCard.classList.toggle("is-flat", mode !== "3d");
+  for (const b of document.querySelectorAll("[data-view]")) b.setAttribute("aria-pressed", String(b.dataset.view === mode));
+  resize();
+}
+for (const b of document.querySelectorAll("[data-view]")) b.addEventListener("click", () => setView(b.dataset.view));
+
+function flatLayout() {
+  const W = flat.clientWidth, H = flat.clientHeight;
+  const unit = Math.min(W, H) / 8.4;
+  return { W, H, unit, ox: W / 2, oy: H / 2 };
+}
+const planeXY = (v) => ({ x: v.x, y: -v.z });
+const toPx = (g, x, y) => ({ x: g.ox + x * g.unit, y: g.oy - y * g.unit });
+const flatView = { rot: 0, mirror: false };
+function updateFlatView() {
+  const inv = frame.quaternion.clone().invert();
+  const cam = camera.position.clone().applyQuaternion(inv);
+  flatView.mirror = cam.y < 0;
+  const up = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion).applyQuaternion(inv);
+  const p = planeXY(up);
+  if (flatView.mirror) p.x = -p.x;
+  if (Math.hypot(p.x, p.y) > 0.05) {
+    const rot = Math.PI / 2 - Math.atan2(p.y, p.x);
+    flatView.rot = Math.round(rot / (Math.PI / 2)) * (Math.PI / 2);
+  }
+}
+function screenXY(p) {
+  const x = flatView.mirror ? -p.x : p.x;
+  const c = Math.cos(flatView.rot), sn = Math.sin(flatView.rot);
+  return { x: x * c - p.y * sn, y: x * sn + p.y * c };
+}
+function planeFromScreen(q) {
+  const c = Math.cos(flatView.rot), sn = Math.sin(flatView.rot);
+  const x = q.x * c + q.y * sn, y = -q.x * sn + q.y * c;
+  return { x: flatView.mirror ? -x : x, y };
+}
+
+function flatArrow(x0, y0, x1, y1, colour, width) {
+  const dx = x1 - x0, dy = y1 - y0;
+  const len = Math.hypot(dx, dy);
+  if (len < 1) return;
+  const ux = dx / len, uy = dy / len;
+  const head = Math.min(14, len * 0.6);
+  fctx.strokeStyle = colour;
+  fctx.fillStyle = colour;
+  fctx.lineWidth = width;
+  fctx.lineCap = "round";
+  fctx.beginPath();
+  fctx.moveTo(x0, y0);
+  fctx.lineTo(x1 - ux * head * 0.8, y1 - uy * head * 0.8);
+  fctx.stroke();
+  fctx.beginPath();
+  fctx.moveTo(x1, y1);
+  fctx.lineTo(x1 - ux * head - uy * head * 0.45, y1 - uy * head + ux * head * 0.45);
+  fctx.lineTo(x1 - ux * head + uy * head * 0.45, y1 - uy * head - ux * head * 0.45);
+  fctx.closePath();
+  fctx.fill();
+}
+
+function flatLabel(text, x, y, colour, size = 20, overarrow = true) {
+  fctx.font = `italic 700 ${size}px ${FONT}`;
+  fctx.textAlign = "center";
+  fctx.textBaseline = "middle";
+  fctx.lineWidth = 5;
+  fctx.lineJoin = "round";
+  fctx.strokeStyle = colours.panel;
+  fctx.strokeText(text, x, y);
+  fctx.fillStyle = colour;
+  fctx.fillText(text, x, y);
+  if (!overarrow) return;
+  const w = Math.max(size * 0.7, fctx.measureText(text).width + 2);
+  flatArrow(x - w / 2, y - size * 0.78, x + w / 2, y - size * 0.78, colour, Math.max(1.5, size * 0.09));
+}
+
+function flatText(text, x, y, colour, size = 13, align = "left", weight = 500) {
+  fctx.font = `${text === "θ" ? "italic " : ""}${weight} ${size}px ${FONT}`;
+  fctx.textAlign = align;
+  fctx.textBaseline = "middle";
+  fctx.fillStyle = colour;
+  fctx.fillText(text, x, y);
+}
+
+const fmt2 = (x) => (Math.abs(x) < 0.005 ? "0.00" : x.toFixed(2)).replace("-", "−");
+
+function drawGrid(g) {
+  fctx.strokeStyle = colours.line;
+  fctx.lineWidth = 1;
+  const span = Math.ceil(Math.max(g.W, g.H) / g.unit / 2) + 1;
+  for (let i = -span; i <= span; i++) {
+    const p = toPx(g, i, i);
+    fctx.globalAlpha = i === 0 ? 0.9 : 0.5;
+    fctx.beginPath();
+    fctx.moveTo(p.x, 0);
+    fctx.lineTo(p.x, g.H);
+    fctx.moveTo(0, p.y);
+    fctx.lineTo(g.W, p.y);
+    fctx.stroke();
+  }
+  fctx.globalAlpha = 1;
+}
+
+function axesInPlane() {
+  const inv = frame.quaternion.clone().invert();
+  const result = { inPlane: [], normal: null };
+  for (const [name, dir] of Object.entries(axisDirs)) {
+    const local = dir.clone().applyQuaternion(axes.quaternion).applyQuaternion(inv);
+    if (Math.abs(local.y) < 0.035) result.inPlane.push({ name, v: planeXY(local) });
+    else if (Math.abs(local.y) > 0.999) result.normal = { name, up: local.y > 0 };
+  }
+  return result;
+}
+
+function drawFlatAxes(g, list) {
+  const reach = Math.hypot(g.W, g.H);
+  for (const { name, v: pv } of list) {
+    const v = screenXY(pv);
+    const len = Math.hypot(v.x, v.y) || 1;
+    const ux = v.x / len, uy = -v.y / len;
+    const O = toPx(g, 0, 0);
+    const edgeT = Math.min(
+      ux > 0 ? (g.W - 24 - O.x) / ux : ux < 0 ? (24 - O.x) / ux : reach,
+      uy > 0 ? (g.H - 24 - O.y) / uy : uy < 0 ? (24 - O.y) / uy : reach,
+    );
+    fctx.strokeStyle = colours.muted;
+    fctx.lineWidth = 1.5;
+    fctx.beginPath();
+    fctx.moveTo(O.x - ux * edgeT, O.y - uy * edgeT);
+    fctx.lineTo(O.x + ux * edgeT, O.y + uy * edgeT);
+    fctx.stroke();
+    flatArrow(O.x + ux * (edgeT - 20), O.y + uy * (edgeT - 20), O.x + ux * edgeT, O.y + uy * edgeT, colours.muted, 1.5);
+    flatLabel(name, O.x + ux * edgeT - uy * 14, O.y + uy * edgeT + ux * 14, colours.muted, 15, false);
+  }
+}
+
+function drawTop(g) {
+  updateFlatView();
+  drawGrid(g);
+  const axesHere = axesInPlane();
+  drawFlatAxes(g, axesHere.inPlane);
+  const a = planeXY(vecA), b = planeXY(vecB);
+  const sa = screenXY(a), sb = screenXY(b);
+  const O = toPx(g, 0, 0), A = toPx(g, sa.x, sa.y), B = toPx(g, sb.x, sb.y);
+  const area = Math.abs(vecC.y);
+
+  const angA = Math.atan2(sa.y, sa.x), angB = Math.atan2(sb.y, sb.x);
+  let sweep = angB - angA;
+  while (sweep > Math.PI) sweep -= Math.PI * 2;
+  while (sweep <= -Math.PI) sweep += Math.PI * 2;
+  if (Math.abs(sweep) > 0.03) {
+    const r = Math.min(0.75, Math.min(state.magA, state.magB) * 0.45) * g.unit;
+    fctx.strokeStyle = colours.muted;
+    fctx.lineWidth = 1.5;
+    fctx.beginPath();
+    fctx.arc(O.x, O.y, r, -angA, -(angA + sweep), sweep > 0);
+    fctx.stroke();
+    const mid = angA + sweep / 2;
+    flatText("θ", O.x + Math.cos(mid) * (r + 16), O.y - Math.sin(mid) * (r + 16), colours.muted, 14, "center", 600);
+  }
+
+  flatArrow(O.x, O.y, A.x, A.y, colours.a, 3);
+  flatArrow(O.x, O.y, B.x, B.y, colours.b, 3);
+  for (const [which, P, v, colour] of [["A", A, sa, colours.a], ["B", B, sb, colours.b]]) {
+    const len = Math.hypot(v.x, v.y) || 1;
+    const hot = flatState.hovering === which || flatState.dragging === which;
+    if (hot) {
+      fctx.fillStyle = colour;
+      fctx.globalAlpha = 0.2;
+      fctx.beginPath();
+      fctx.arc(P.x, P.y, 18, 0, Math.PI * 2);
+      fctx.fill();
+      fctx.globalAlpha = 1;
+    }
+    flatLabel(names[which], P.x + (v.x / len) * 26, P.y - (v.y / len) * 26, colour);
+  }
+
+  const cUp = vecC.y > 0;
+  const toward = flatView.mirror ? !cUp : cUp;
+  if (area > 0.05) {
+    const R = 15;
+    fctx.fillStyle = colours.panel;
+    fctx.beginPath();
+    fctx.arc(O.x, O.y, R, 0, Math.PI * 2);
+    fctx.fill();
+    fctx.strokeStyle = colours.c;
+    fctx.fillStyle = colours.c;
+    fctx.lineWidth = 3;
+    fctx.beginPath();
+    fctx.arc(O.x, O.y, R, 0, Math.PI * 2);
+    fctx.stroke();
+    if (toward) {
+      fctx.beginPath();
+      fctx.arc(O.x, O.y, 5, 0, Math.PI * 2);
+      fctx.fill();
+    } else {
+      const k = R * 0.6;
+      fctx.beginPath();
+      fctx.moveTo(O.x - k, O.y - k);
+      fctx.lineTo(O.x + k, O.y + k);
+      fctx.moveTo(O.x + k, O.y - k);
+      fctx.lineTo(O.x - k, O.y + k);
+      fctx.stroke();
+    }
+    const left = (A.x + B.x) / 2 > O.x;
+    flatLabel(names.C, O.x + (left ? -38 : 38), O.y + 2, colours.c);
+    if (axesHere.normal) {
+      const sign = axesHere.normal.up === cUp ? "+" : "−";
+      flatText(`${sign}${axesHere.normal.name}`, O.x + (left ? -38 : 38), O.y + 24, colours.muted, 13, "center", 600);
+    }
+  } else {
+    flatText(`${names.A} and ${names.B} are parallel, so ${names.C} = 0`, O.x, O.y - 24, colours.muted, 13, "center", 600);
+  }
+
+}
+
+function drawFlat() {
+  const dpr = window.devicePixelRatio || 1;
+  fctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const g = flatLayout();
+  flatState.geom = g;
+  fctx.clearRect(0, 0, g.W, g.H);
+  drawTop(g);
+}
+
+function flatPointer(e) {
+  const r = flat.getBoundingClientRect();
+  return { x: e.clientX - r.left, y: e.clientY - r.top };
+}
+function flatHit(p) {
+  const g = flatState.geom;
+  if (!g) return null;
+  for (const [which, v] of [["A", screenXY(planeXY(vecA))], ["B", screenXY(planeXY(vecB))]]) {
+    const P = toPx(g, v.x, v.y);
+    if (Math.hypot(p.x - P.x, p.y - P.y) <= 18) return which;
+  }
+  return null;
+}
+function flatMove(p) {
+  const g = flatState.geom;
+  const { x, y } = planeFromScreen({ x: (p.x - g.ox) / g.unit, y: (g.oy - p.y) / g.unit });
+  const ang = Math.atan2(y, x) / RAD;
+  const mag = clamp(Math.hypot(x, y), 0.5, 3);
+  if (flatState.dragging === "A") {
+    setAngA(ang);
+    setMagA(mag);
+  } else {
+    setAngB(ang);
+    setMagB(mag);
+  }
+}
+flat.addEventListener("pointerdown", (e) => {
+  const which = flatHit(flatPointer(e));
+  if (!which) return;
+  e.preventDefault();
+  flat.setPointerCapture(e.pointerId);
+  flatState.dragging = which;
+  state.touched = true;
+  flat.style.cursor = "grabbing";
+  flatMove(flatPointer(e));
+});
+flat.addEventListener("pointermove", (e) => {
+  if (flatState.dragging) {
+    flatMove(flatPointer(e));
+    return;
+  }
+  flatState.hovering = flatHit(flatPointer(e));
+  flat.style.cursor = flatState.hovering ? "grab" : "default";
+});
+const flatEnd = () => {
+  flatState.dragging = null;
+  flat.style.cursor = "default";
+};
+flat.addEventListener("pointerup", flatEnd);
+flat.addEventListener("pointercancel", flatEnd);
+flat.addEventListener("pointerleave", () => {
+  if (!flatState.dragging) flatState.hovering = null;
+});
+
+function resize() {
+  const w = view.clientWidth, h = view.clientHeight;
+  if (!w || !h) return;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  const dpr = window.devicePixelRatio || 1;
+  flat.width = Math.round(w * dpr);
+  flat.height = Math.round(h * dpr);
+}
+new ResizeObserver(resize).observe(view);
+resize();
+
+setAngA(DEFAULTS.angA);
+setAngB(DEFAULTS.angB);
+setMagA(DEFAULTS.magA);
+setMagB(DEFAULTS.magB);
+setSpeed(1);
+syncPlay();
+
+let last = performance.now();
+let ready = false;
+function tick(now) {
+  const elapsed = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  if (state.spinning && state.dragging !== "plane") {
+    const spin = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), 24 * state.speed * elapsed * RAD);
+    frame.quaternion.premultiply(spin);
+    if (state.lock) axes.quaternion.premultiply(spin);
+  }
+  if (planeAnim) stepPlaneAnim(now);
+  updateScene();
+  if (state.view === "3d") {
+    controls.update();
+    renderer.render(scene, camera);
+  } else {
+    drawFlat();
+  }
+  if (!ready) {
+    ready = true;
+    sceneCard.classList.add("ready");
+  }
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>
